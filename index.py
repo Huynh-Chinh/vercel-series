@@ -87,6 +87,18 @@ def reset_password():
 
     return jsonify({'error': 'Invalid confirmation code!'}), 400
 
+@app.route('/delete-account', methods=['DELETE'])
+def delete_account():
+    data = request.json
+    user = User.query.filter_by(email=data['email']).first()
+
+    if user and user.password == hash_password(data['password']):
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({'message': 'Account deleted successfully!'}), 200
+
+    return jsonify({'error': 'Invalid email or password!'}), 400
+
 if __name__ == '__main__':
     init_db()  # Khởi tạo cơ sở dữ liệu khi ứng dụng bắt đầu
     app.run(debug=True)
