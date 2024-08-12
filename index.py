@@ -6,7 +6,7 @@ import hashlib
 app = Flask(__name__)
 
 # Cấu hình kết nối đến PostgreSQL
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres://default:lIPLH31uZbeU@ep-rough-scene-a437vp78.us-east-1.aws.neon.tech:5432/verceldb?sslmode=require'
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgres://default:lIPLH31uZbeU@ep-rough-scene-a437vp78.us-east-1.aws.neon.tech:5432/verceldb?sslmode=require"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
