@@ -6,7 +6,7 @@ import hashlib
 app = Flask(__name__)
 
 # Cấu hình kết nối đến PostgreSQL
-app.config['SQLALCHEMY_DATABASE_URI'] = "postgres://default:lIPLH31uZbeU@ep-rough-scene-a437vp78.us-east-1.aws.neon.tech:5432/verceldb?sslmode=require"
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://default:lIPLH31uZbeU@ep-rough-scene-a437vp78.us-east-1.aws.neon.tech:5432/verceldb?sslmode=require'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -22,10 +22,10 @@ class User(db.Model):
     address = db.Column(db.String(200), nullable=False)
     confirmation_code = db.Column(db.String(6), nullable=True)
 
-# Khởi tạo cơ sở dữ liệu
-@app.before_first_request
-def create_tables():
-    db.create_all()
+# Hàm khởi tạo cơ sở dữ liệu
+def init_db():
+    with app.app_context():
+        db.create_all()
 
 # Hash mật khẩu
 def hash_password(password):
@@ -88,4 +88,5 @@ def reset_password():
     return jsonify({'error': 'Invalid confirmation code!'}), 400
 
 if __name__ == '__main__':
+    init_db()  # Khởi tạo cơ sở dữ liệu khi ứng dụng bắt đầu
     app.run(debug=True)
