@@ -2,8 +2,20 @@ from flask import Flask, request, jsonify
 import json
 import os
 import hashlib
+import random
+import string
+from flask_mail import Mail, Message
 
 app = Flask(__name__)
+
+# Cấu hình email (thay đổi thông tin dưới đây với cấu hình email của bạn)
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'your_email@gmail.com'
+app.config['MAIL_PASSWORD'] = 'your_password'
+
+mail = Mail(app)
 db_file = 'userdb.json'
 
 def load_users():
@@ -19,36 +31,63 @@ def save_users(users):
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
+def generate_confirmation_code():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
     users = load_users()
 
-    if data['username'] in users:
-        return jsonify({'error': 'Username already exists!'}), 400
+    if data['email'] in users:
+        return jsonify({'error': 'Email already registered!'}), 400
 
-    user_data = {
+    confirmation_code = generate_confirmation_code()
+    users[data['email']] = {
         'fullname': data['fullname'],
         'password': hash_password(data['password']),
         'email': data['email'],
         'school': data['school'],
         'class': data['class'],
         'phone': data['phone'],
-        'address': data['address']
+        'address': data['address'],
+        'confirmation_code': confirmation_code,
+        'is_confirmed': False
     }
-
-    users[data['username']] = user_data
     save_users(users)
 
-    return jsonify({'message': 'User registered successfully!'}), 201
+    # Gửi email xác nhận
+    msg = Message('Your confirmation code', sender='your_email@gmail.com', recipients=[data['email']])
+    msg.body = f'Your confirmation code is: {confirmation_code}'
+    mail.send(msg)
+
+    return jsonify({'message': 'User registered successfully! Please check your email for the confirmation code.'}), 201
+
+@app.route('/confirm-registration', methods=['POST'])
+def confirm_registration():
+    data = request.json
+    users = load_users()
+
+    user = users.get(data['email'])
+    if user and user['confirmation_code'] == data['confirmation_code']:
+        user['is_confirmed'] = True
+        save_users(users)
+        return jsonify({'message': 'User confirmed successfully!'}), 200
+
+    return jsonify({'error': 'Invalid confirmation code or email!'}), 400
 
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
     users = load_users()
 
-    if data['username'] not in users or users[data['username']]['password'] != hash_password(data['password']):
-        return jsonify({'error': 'Invalid username or password!'}), 400
+    user = users.get(data['email'])
+    if not user:
+        return jsonify({'error': 'Email not found!'}), 400
+    if not user['is_confirmed']:
+        return jsonify({'error': 'Email not confirmed! Please check your email for the confirmation code.'}), 400
+    if user['password'] != hash_password(data['password']):
+        return jsonify({'error': 'Invalid password!'}), 400
 
     return jsonify({'message': 'Login successful!'}), 200
 
@@ -57,41 +96,33 @@ def forgot_password():
     data = request.json
     users = load_users()
 
-    for username, user_data in users.items():
-        if user_data['email'] == data['email'] or user_data['phone'] == data['phone']:
-            new_password = hash_password(data['new_password'])
-            users[username]['password'] = new_password
-            save_users(users)
-            return jsonify({'message': 'Password reset successfully!'}), 200
+    user = users.get(data['email'])
+    if user:
+        confirmation_code = generate_confirmation_code()
+        user['confirmation_code'] = confirmation_code
+        save_users(users)
 
-    return jsonify({'error': 'No user found with the provided email or phone number!'}), 400
+        # Gửi email xác nhận
+        msg = Message('Password reset confirmation code', sender='your_email@gmail.com', recipients=[data['email']])
+        msg.body = f'Your password reset confirmation code is: {confirmation_code}'
+        mail.send(msg)
 
-@app.route('/update-info', methods=['POST'])
-def update_info():
+        return jsonify({'message': 'Password reset code sent to your email!'}), 200
+
+    return jsonify({'error': 'Email not found!'}), 400
+
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
     data = request.json
     users = load_users()
 
-    if data['username'] not in users or users[data['username']]['password'] != hash_password(data['password']):
-        return jsonify({'error': 'Invalid username or password!'}), 400
+    user = users.get(data['email'])
+    if user and user['confirmation_code'] == data['confirmation_code']:
+        user['password'] = hash_password(data['new_password'])
+        save_users(users)
+        return jsonify({'message': 'Password reset successfully!'}), 200
 
-    if 'fullname' in data:
-        users[data['username']]['fullname'] = data['fullname']
-    if 'email' in data:
-        users[data['username']]['email'] = data['email']
-    if 'school' in data:
-        users[data['username']]['school'] = data['school']
-    if 'class' in data:
-        users[data['username']]['class'] = data['class']
-    if 'phone' in data:
-        users[data['username']]['phone'] = data['phone']
-    if 'address' in data:
-        users[data['username']]['address'] = data['address']
-    if 'new_password' in data:
-        users[data['username']]['password'] = hash_password(data['new_password'])
-
-    save_users(users)
-
-    return jsonify({'message': 'User info updated successfully!'}), 200
+    return jsonify({'error': 'Invalid confirmation code or email!'}), 400
 
 if __name__ == '__main__':
     app.run(debug=True)
