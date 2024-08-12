@@ -1,1 +1,5 @@
-fastapi
+flask
+flask_sqlalchemy
+flask_mail
+hashlib
+random
