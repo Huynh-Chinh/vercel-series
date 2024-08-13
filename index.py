@@ -99,6 +99,35 @@ def delete_account():
 
     return jsonify({'error': 'Invalid email or password!'}), 400
 
+@app.route('/update-profile', methods=['PUT'])
+def update_profile():
+    data = request.json
+    user = User.query.filter_by(email=data['email']).first()
+
+    if user and user.password == hash_password(data['password']):
+        user.fullname = data.get('fullname', user.fullname)
+        user.school = data.get('school', user.school)
+        user.class_name = data.get('class', user.class_name)
+        user.phone = data.get('phone', user.phone)
+        user.address = data.get('address', user.address)
+
+        db.session.commit()
+        return jsonify({'message': 'Profile updated successfully!'}), 200
+
+    return jsonify({'error': 'Invalid email or password!'}), 400
+
+@app.route('/change-password', methods=['PUT'])
+def change_password():
+    data = request.json
+    user = User.query.filter_by(email=data['email']).first()
+
+    if user and user.password == hash_password(data['current_password']):
+        user.password = hash_password(data['new_password'])
+        db.session.commit()
+        return jsonify({'message': 'Password changed successfully!'}), 200
+
+    return jsonify({'error': 'Invalid email or current password!'}), 400
+
 if __name__ == '__main__':
     init_db()  # Khởi tạo cơ sở dữ liệu khi ứng dụng bắt đầu
     app.run(debug=True)
